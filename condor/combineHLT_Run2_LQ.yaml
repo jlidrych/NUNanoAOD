@@ -1,0 +1,6 @@
+Run2017.SingleMuon : "
+(HLT_Mu50 || HLT_OldMu100 || HLT_TkMu100)
+"
+Run2017.RunB : "
+(HLT_Mu50)
+"

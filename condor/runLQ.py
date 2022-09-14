@@ -10,9 +10,7 @@ from termcolor import colored
 logging.basicConfig(level=logging.DEBUG)
 
 script_TEMPLATE = """#!/bin/bash
-source /cvmfs/grid.desy.de/etc/profile.d/grid-ui-env.sh
 export X509_USER_PROXY={proxy}
-voms-proxy-info -all
 source /cvmfs/cms.cern.ch/cmsset_default.sh
 export SCRAM_ARCH=slc6_amd64_gcc630
 
@@ -30,13 +28,14 @@ echo "+ CMSSW_BASE  = $CMSSW_BASE"
 echo "+ PYTHON_PATH = $PYTHON_PATH"
 echo "+ PWD         = $PWD"
 echo "----- Found Proxy in: $X509_USER_PROXY"
-python condor_Run2_proc.py --jobNum=$1 --isMC={ismc} --era={era} --infile=$2
+python condor_Run2_proc_LQ.py --jobNum=$1 --isMC={ismc} --era={era} --infile=$2
 echo "----- transfert output to eos :"
 xrdcp -s -f tree_$1.root {eosdir}
 echo "----- directory after running :"
 ls -lR .
 echo " ------ THE END (everyone dies !) ----- "
 """
+
 
 condor_TEMPLATE = """
 request_disk          = 10000000
@@ -48,20 +47,7 @@ error                 = $(ClusterId).$(ProcId).err
 log                   = $(ClusterId).$(ProcId).log
 initialdir            = {jobdir}
 transfer_output_files = ""
-should_transfer_files   = Yes
 +JobFlavour           = "{queue}"
-# 1h
-#+RequestRuntime     = 3600
-# 168h=7days
-#+RequestRuntime     = 604800
-# 6h
-#+RequestRuntime     = 21600
-# 12h
-+RequestRuntime     = 43200
-# 30h
-#+RequestRuntime     = 108000
-# 24 h
-#+RequestRuntime     = 86400
 
 queue jobid from {jobdir}/inputfiles.dat
 """
@@ -85,9 +71,9 @@ def main():
     home_base  = os.environ['HOME']
     proxy_copy = os.path.join(home_base,proxy_base)
     cmssw_base = os.environ['CMSSW_BASE']
-    eosbase = "/nfs/dust/cms/user/lidrychj/NanoAOD/CMSSW_10_6_4/src/PhysicsTools/MonoZ/condor/output/{tag}/{sample}/"
+    # here you need to put PATH to your eos disk space..
+    eosbase = "/PATH/TO/YOUR/EOS/DISK/SPACE/output/{tag}/{sample}/"
 
-    print proxy_copy
 
     regenerate_proxy = False
     if not os.path.isfile(proxy_copy):
@@ -134,7 +120,7 @@ def main():
             sample_name = sample.split("/")[1] if options.isMC else '_'.join(sample.split("/")[1:3])
             jobs_dir = '_'.join(['jobs', options.tag, sample_name])
             logging.info("-- sample_name : " + sample)
- 
+
             if os.path.isdir(jobs_dir):
 #                if not options.force:
 #                    logging.error(" " + jobs_dir + " already exist !")
@@ -188,17 +174,13 @@ def main():
             with open(os.path.join(jobs_dir, "condor.sub"), "w") as condorfile:
                 condor = condor_TEMPLATE.format(
                     transfer_file= ",".join([
-                        "/nfs/dust/cms/user/lidrychj/NanoAOD/CMSSW_10_6_4/src/PhysicsTools/MonoZ/condor/condor_Run2_proc.py",
-                        "/nfs/dust/cms/user/lidrychj/NanoAOD/CMSSW_10_6_4/src/PhysicsTools/MonoZ/condor/combineHLT_Run2.yaml",
-                        "/nfs/dust/cms/user/lidrychj/NanoAOD/CMSSW_10_6_4/src/PhysicsTools/MonoZ/data/xsections_2016.yaml",
-                        "/nfs/dust/cms/user/lidrychj/NanoAOD/CMSSW_10_6_4/src/PhysicsTools/MonoZ/data/xsections_2017.yaml",
-                        "/nfs/dust/cms/user/lidrychj/NanoAOD/CMSSW_10_6_4/src/PhysicsTools/MonoZ/data/xsections_2018.yaml",
-                        "/nfs/dust/cms/user/lidrychj/NanoAOD/CMSSW_10_6_4/src/PhysicsTools/MonoZ/condor/keep_and_drop.txt",
-                        "/nfs/dust/cms/user/lidrychj/NanoAOD/CMSSW_10_6_4/src/PhysicsTools/MonoZ/condor/keep_and_drop_post.txt",
-                        "/nfs/dust/cms/user/lidrychj/NanoAOD/CMSSW_10_6_4/src/PhysicsTools/MonoZ/condor/Cert_271036-284044_13TeV_ReReco_07Aug2017_Collisions16_JSON.txt",
-                        "/nfs/dust/cms/user/lidrychj/NanoAOD/CMSSW_10_6_4/src/PhysicsTools/MonoZ/condor/Cert_294927-306462_13TeV_EOY2017ReReco_Collisions17_JSON_v1.txt",
-                        "/nfs/dust/cms/user/lidrychj/NanoAOD/CMSSW_10_6_4/src/PhysicsTools/MonoZ/condor/Cert_314472-325175_13TeV_17SeptEarlyReReco2018ABC_PromptEraD_Collisions18_JSON.txt",
-                        "/nfs/dust/cms/user/lidrychj/NanoAOD/CMSSW_10_6_4/src/PhysicsTools/MonoZ/condor/haddnano.py"
+                        "../condor_Run2_proc_LQ.py",
+                        "../combineHLT_Run2_LQ.yaml",
+                        "../../data/xsections_UL2017.yaml",
+                        "../keep_and_drop.txt",
+                        "../keep_and_drop_post.txt",
+                        "../Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt",
+                        "../haddnano.py"
                     ]),
                     jobdir=jobs_dir,
                     queue=options.queue
